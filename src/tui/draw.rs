@@ -1499,7 +1499,7 @@ impl App {
                 vec![("y", "quit"), ("n/Esc", "cancel")]
             }
             InputMode::ConfirmDelete => {
-                vec![("y", "confirm"), ("p", "permanent"), ("n/Esc", "cancel")]
+                vec![("y", "permanent delete"), ("n/Esc", "cancel")]
             }
             InputMode::ConfirmPermanentDelete { .. } => {
                 vec![("Enter", "confirm"), ("Esc", "cancel")]
@@ -2031,10 +2031,10 @@ impl App {
                             .fg(Color::Yellow)
                             .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled(" to trash?", Style::default().fg(Color::Red)),
+                    Span::styled(" permanently?", Style::default().fg(Color::Red)),
                 ]),
                 Line::from(""),
-                Self::hint_line(&[("y", "trash"), ("p", "permanent"), ("n/Esc", "cancel")]),
+                Self::hint_line(&[("y", "permanent delete"), ("n/Esc", "cancel")]),
             ],
             Color::Red,
         );

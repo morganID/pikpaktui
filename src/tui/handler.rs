@@ -286,7 +286,7 @@ impl App {
                 match code {
                     KeyCode::Char('y') => {
                         if let Some(entry) = self.current_entry().cloned() {
-                            self.spawn_delete(entry);
+                            self.spawn_permanent_delete(entry);
                         }
                     }
                     KeyCode::Char('p') => {
@@ -296,7 +296,7 @@ impl App {
                         };
                     }
                     KeyCode::Char('n') | KeyCode::Esc => {
-                        self.push_log("Remove cancelled".into());
+                        self.push_log("Delete cancelled".into());
                     }
                     _ => {
                         self.input = InputMode::ConfirmDelete;
