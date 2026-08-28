@@ -372,6 +372,9 @@ enum InputMode {
     OfflineInput {
         value: String,
     },
+    SaveShareInput {
+        value: String,
+    },
     OfflineTasksView {
         tasks: Vec<crate::pikpak::OfflineTask>,
         selected: usize,

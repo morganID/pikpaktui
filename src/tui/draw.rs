@@ -1768,6 +1768,9 @@ impl App {
             InputMode::OfflineInput { value } => {
                 self.draw_offline_input_overlay(f, value, cur);
             }
+            InputMode::SaveShareInput { value } => {
+                self.draw_save_share_input_overlay(f, value, cur);
+            }
             InputMode::OfflineTasksView { tasks, selected } => {
                 self.draw_offline_tasks_overlay(f, tasks, *selected);
             }
@@ -2463,6 +2466,7 @@ impl App {
                             ("A", "View cart"),
                             ("M", "My Shares"),
                             ("o", "Cloud download"),
+                            ("b", "Save share"),
                             ("O", "Offline tasks"),
                             ("t", "Trash"),
                             ("l", "Toggle logs"),
@@ -2970,6 +2974,34 @@ impl App {
                 Self::hint_line(&[("Enter", "submit"), ("Esc", "cancel")]),
             ])
             .block(self.overlay_block("Offline Download", bc, tc)),
+            area,
+        );
+    }
+
+    fn draw_save_share_input_overlay(&self, f: &mut Frame, value: &str, _cur: &str) {
+        let area = self.prepare_overlay(f, 70, 25);
+        let display = self.text_input_display(value, area.width.saturating_sub(9) as usize);
+        let (bc, tc) = if self.is_vibrant() {
+            (Color::LightCyan, Color::LightCyan)
+        } else {
+            (Color::Cyan, Color::Yellow)
+        };
+        f.render_widget(
+            Paragraph::new(vec![
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Paste a share URL (mypikpak.com/s/...) to save to your drive:",
+                    Style::default().fg(Color::Reset),
+                )),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  URL: ", Style::default().fg(Color::Cyan)),
+                    Span::styled(display, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Self::hint_line(&[("Enter", "submit"), ("Esc", "cancel")]),
+            ])
+            .block(self.overlay_block("Save Share", bc, tc)),
             area,
         );
     }

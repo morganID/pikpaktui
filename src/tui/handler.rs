@@ -1,4 +1,5 @@
 use anyhow::Result;
+use anyhow::anyhow as anyhow_err;
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -22,6 +23,17 @@ use super::{
 const SETTINGS_LAST_INDEX: usize = 16;
 const SETTINGS_COLOR_SCHEME_INDEX: usize = 2;
 const SETTINGS_IMAGE_PROTOCOL_INDEX: usize = 9;
+
+/// Pull the share id out of a full `mypikpak.com/s/<id>` URL, or pass a bare
+/// id through untouched. Mirrors the CLI helper in `cmd/share.rs`.
+fn extract_share_id(share_url: &str) -> &str {
+    if share_url.contains("/s/") {
+        let trimmed = share_url.trim_end_matches('/');
+        trimmed.rsplit('/').next().unwrap_or(trimmed)
+    } else {
+        share_url
+    }
+}
 
 enum PickerKeyResult {
     Navigated,
@@ -380,6 +392,10 @@ impl App {
             }
             InputMode::OfflineInput { mut value } => {
                 self.handle_offline_input_key(code, modifiers, &mut value);
+                Ok(false)
+            }
+            InputMode::SaveShareInput { mut value } => {
+                self.handle_save_share_input_key(code, modifiers, &mut value);
                 Ok(false)
             }
             InputMode::OfflineTasksView {
@@ -921,6 +937,11 @@ impl App {
             }
             KeyCode::Char('o') => {
                 self.input = InputMode::OfflineInput {
+                    value: String::new(),
+                };
+            }
+            KeyCode::Char('b') => {
+                self.input = InputMode::SaveShareInput {
                     value: String::new(),
                 };
             }
@@ -2274,6 +2295,61 @@ impl App {
                 };
             }
         }
+    }
+
+    fn handle_save_share_input_key(
+        &mut self,
+        code: KeyCode,
+        modifiers: KeyModifiers,
+        value: &mut String,
+    ) {
+        match handle_text_input(value, &mut self.text_cursor, code, modifiers) {
+            Some(false) => {
+                self.push_log("Save share cancelled".into());
+            }
+            Some(true) => {
+                let url = value.trim().to_string();
+                if url.is_empty() {
+                    self.push_log("No share URL provided".into());
+                    self.input = InputMode::SaveShareInput {
+                        value: std::mem::take(value),
+                    };
+                } else {
+                    // Saves land in the current folder when one is open,
+                    // otherwise into the drive root (just like cloud download).
+                    let to_parent = self.current_folder_id.clone();
+                    self.spawn_save_share(url, to_parent);
+                }
+            }
+            None => {
+                self.input = InputMode::SaveShareInput {
+                    value: std::mem::take(value),
+                };
+            }
+        }
+    }
+
+    fn spawn_save_share(&mut self, url: String, to_parent_id: String) {
+        let client = Arc::clone(&self.client);
+        let tx = self.result_tx.clone();
+        self.loading = true;
+        std::thread::spawn(move || {
+            let result = (|| -> anyhow::Result<usize> {
+                let share_id = extract_share_id(&url);
+                let info = client.share_info(share_id, "")?;
+                let entries = client.share_detail(share_id, "", &info.pass_code_token)?;
+                if entries.is_empty() {
+                    return Err(anyhow_err!("share contains no files"));
+                }
+                let file_ids: Vec<&str> = entries.iter().map(|f| f.id.as_str()).collect();
+                client.save_share(share_id, &info.pass_code_token, &file_ids, &to_parent_id)?;
+                Ok(entries.len())
+            })();
+            let _ = tx.send(match result {
+                Ok(n) => OpResult::Ok(format!("Saved {} item(s) to your drive", n)),
+                Err(e) => OpResult::Err(format!("Save share failed: {e:#}")),
+            });
+        });
     }
 
     fn spawn_offline_download(&mut self, url: String) {
